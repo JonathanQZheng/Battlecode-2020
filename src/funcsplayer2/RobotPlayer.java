@@ -1,25 +1,25 @@
-package examplefuncsplayer;
+package funcsplayer2;
 import battlecode.common.*;
-
-import java.awt.*;
 
 public strictfp class RobotPlayer {
     static RobotController rc;
 
     static Direction[] directions = {
-            Direction.NORTH,
-            Direction.NORTHEAST,
-            Direction.EAST,
-            Direction.SOUTHEAST,
-            Direction.SOUTH,
-            Direction.SOUTHWEST,
-            Direction.WEST,
-            Direction.NORTHWEST
+        Direction.NORTH,
+        Direction.NORTHEAST,
+        Direction.EAST,
+        Direction.SOUTHEAST,
+        Direction.SOUTH,
+        Direction.SOUTHWEST,
+        Direction.WEST,
+        Direction.NORTHWEST
     };
     static RobotType[] spawnedByMiner = {RobotType.REFINERY, RobotType.VAPORATOR, RobotType.DESIGN_SCHOOL,
             RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN};
 
     static int turnCount;
+    static MapLocation HQLOC = null;
+    static int HQELEVATION = Integer.MIN_VALUE;
 
 
     /**
@@ -68,23 +68,50 @@ public strictfp class RobotPlayer {
     static void runHQ() throws GameActionException {
         for (Direction dir : directions)
             tryBuild(RobotType.MINER, dir);
+        int height = rc.senseElevation(rc.getLocation());
+        System.out.println(height);
+
     }
-
     static void runMiner() throws GameActionException {
-
-        tryBlockchain();
+        //locating the HQ for every miner
+        if(HQLOC == null) {
+            RobotInfo[] robotList = rc.senseNearbyRobots();
+            for (RobotInfo robot : robotList) {
+                //System.out.println(robot.toString());
+                if (robot.type == RobotType.HQ) {
+                    HQLOC = robot.location;
+                    HQELEVATION = rc.senseElevation(HQLOC);
+                    System.out.println("HQLOC: "+HQLOC + " " + HQELEVATION);
+                }
+            }
+        }
+        //finding where the soup is and then we want to move to the closest one
+        MapLocation[] soupLocs = rc.senseNearbySoup();
+        //tryBlockchain();
         tryMove(randomDirection());
-        if (tryMove(randomDirection()))
-            System.out.println("I moved!");
+
+        if(tryMine(Direction.WEST)){
+            System.out.println("I am about to mine");
+            rc.mineSoup(Direction.WEST);
+            System.out.println("I mined: " + rc.getSoupCarrying());
+
+        }
+//        if (tryMove(randomDirection()))
+//            System.out.println("I moved!");
         // tryBuild(randomSpawnedByMiner(), randomDirection());
-        for (Direction dir : directions)
-            tryBuild(RobotType.FULFILLMENT_CENTER, dir);
-        for (Direction dir : directions)
-            if (tryRefine(dir))
-                System.out.println("I refined soup! " + rc.getTeamSoup());
-        for (Direction dir : directions)
-            if (tryMine(dir))
-                System.out.println("I mined soup! " + rc.getSoupCarrying());
+//        for (Direction dir : directions) {
+//            if (tryMine(dir)) {
+//                rc.mineSoup(dir);
+//                System.out.println("I mined soup! " + rc.getSoupCarrying());
+//
+//            }
+//        }
+//        for (Direction dir : directions)
+//            tryBuild(RobotType.FULFILLMENT_CENTER, dir);
+//        for (Direction dir : directions)
+//            if (tryRefine(dir))
+//                System.out.println("I refined soup! " + rc.getTeamSoup());
+
     }
 
     static void runRefinery() throws GameActionException {
@@ -202,7 +229,7 @@ public strictfp class RobotPlayer {
      */
     static boolean tryMine(Direction dir) throws GameActionException {
         if (rc.isReady() && rc.canMineSoup(dir)) {
-            rc.mineSoup(dir);
+            //rc.mineSoup(dir);
             return true;
         } else return false;
     }
