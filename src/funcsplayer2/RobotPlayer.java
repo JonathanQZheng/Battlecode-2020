@@ -1,6 +1,8 @@
 package funcsplayer2;
 import battlecode.common.*;
 
+import java.awt.*;
+
 public strictfp class RobotPlayer {
     static RobotController rc;
 
@@ -44,13 +46,13 @@ public strictfp class RobotPlayer {
                 // You can add the missing ones or rewrite this into your own control structure.
                 System.out.println("I'm a " + rc.getType() + "! Location " + rc.getLocation());
                 switch (rc.getType()) {
-                    case HQ:                 runHQ();                break;
-                    case MINER:              runMiner();             break;
+                    case HQ:                 HQ.run();               break;
+                    case MINER:              Miner.run();            break;
                     case REFINERY:           runRefinery();          break;
                     case VAPORATOR:          runVaporator();         break;
-                    case DESIGN_SCHOOL:      runDesignSchool();      break;
+                    case DESIGN_SCHOOL:      DesignSchool.run();     break;
                     case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
-                    case LANDSCAPER:         runLandscaper();        break;
+                    case LANDSCAPER:         Landscaper.run();       break;
                     case DELIVERY_DRONE:     runDeliveryDrone();     break;
                     case NET_GUN:            runNetGun();            break;
                 }
@@ -65,54 +67,8 @@ public strictfp class RobotPlayer {
         }
     }
 
-    static void runHQ() throws GameActionException {
-        for (Direction dir : directions)
-            tryBuild(RobotType.MINER, dir);
-        int height = rc.senseElevation(rc.getLocation());
-        System.out.println(height);
 
-    }
-    static void runMiner() throws GameActionException {
-        //locating the HQ for every miner
-        if(HQLOC == null) {
-            RobotInfo[] robotList = rc.senseNearbyRobots();
-            for (RobotInfo robot : robotList) {
-                //System.out.println(robot.toString());
-                if (robot.type == RobotType.HQ) {
-                    HQLOC = robot.location;
-                    HQELEVATION = rc.senseElevation(HQLOC);
-                    System.out.println("HQLOC: "+HQLOC + " " + HQELEVATION);
-                }
-            }
-        }
-        //finding where the soup is and then we want to move to the closest one
-        MapLocation[] soupLocs = rc.senseNearbySoup();
-        //tryBlockchain();
-        tryMove(randomDirection());
 
-        if(tryMine(Direction.WEST)){
-            System.out.println("I am about to mine");
-            rc.mineSoup(Direction.WEST);
-            System.out.println("I mined: " + rc.getSoupCarrying());
-
-        }
-//        if (tryMove(randomDirection()))
-//            System.out.println("I moved!");
-        // tryBuild(randomSpawnedByMiner(), randomDirection());
-//        for (Direction dir : directions) {
-//            if (tryMine(dir)) {
-//                rc.mineSoup(dir);
-//                System.out.println("I mined soup! " + rc.getSoupCarrying());
-//
-//            }
-//        }
-//        for (Direction dir : directions)
-//            tryBuild(RobotType.FULFILLMENT_CENTER, dir);
-//        for (Direction dir : directions)
-//            if (tryRefine(dir))
-//                System.out.println("I refined soup! " + rc.getTeamSoup());
-
-    }
 
     static void runRefinery() throws GameActionException {
         // System.out.println("Pollution: " + rc.sensePollution(rc.getLocation()));
@@ -122,18 +78,13 @@ public strictfp class RobotPlayer {
 
     }
 
-    static void runDesignSchool() throws GameActionException {
-
-    }
 
     static void runFulfillmentCenter() throws GameActionException {
         for (Direction dir : directions)
             tryBuild(RobotType.DELIVERY_DRONE, dir);
     }
 
-    static void runLandscaper() throws GameActionException {
 
-    }
 
     static void runDeliveryDrone() throws GameActionException {
         Team enemy = rc.getTeam().opponent();
@@ -179,15 +130,15 @@ public strictfp class RobotPlayer {
             if (tryMove(dir))
                 return true;
         return false;
-        // MapLocation loc = rc.getLocation();
-        // if (loc.x < 10 && loc.x < loc.y)
-        //     return tryMove(Direction.EAST);
-        // else if (loc.x < 10)
-        //     return tryMove(Direction.SOUTH);
-        // else if (loc.x > loc.y)
-        //     return tryMove(Direction.WEST);
-        // else
-        //     return tryMove(Direction.NORTH);
+//         MapLocation loc = rc.getLocation();
+//         if (loc.x < 10 && loc.x < loc.y)
+//             return tryMove(Direction.EAST);
+//         else if (loc.x < 10)
+//             return tryMove(Direction.SOUTH);
+//         else if (loc.x > loc.y)
+//             return tryMove(Direction.WEST);
+//         else
+//             return tryMove(Direction.NORTH);
     }
 
     /**
@@ -203,6 +154,27 @@ public strictfp class RobotPlayer {
             rc.move(dir);
             return true;
         } else return false;
+    }
+
+    static boolean tryMove(MapLocation destination) throws GameActionException {
+        boolean didMove = true;
+        MapLocation position = rc.getLocation();
+        int deltaX = destination.x - position.x;
+        if (deltaX > 1) {
+            didMove = tryMove(Direction.EAST);
+        } else if (deltaX < -1){
+            didMove = tryMove(Direction.WEST);
+        }
+        if (!didMove) {
+            return false;
+        }
+        int deltaY = destination.y - position.y;
+        if (deltaY > 1) {
+            didMove = tryMove(Direction.NORTH);
+        } else if (deltaY < -1){
+            didMove = tryMove(Direction.SOUTH);
+        }
+        return didMove;
     }
 
     /**
@@ -228,11 +200,12 @@ public strictfp class RobotPlayer {
      * @throws GameActionException
      */
     static boolean tryMine(Direction dir) throws GameActionException {
-        if (rc.isReady() && rc.canMineSoup(dir)) {
-            //rc.mineSoup(dir);
+        if (rc.isReady()) {
+            rc.mineSoup(dir);
             return true;
         } else return false;
     }
+
 
     /**
      * Attempts to refine soup in a given direction.
