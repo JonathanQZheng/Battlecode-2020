@@ -1,5 +1,6 @@
 package funcsplayer2;
 import battlecode.common.*;
+import java.util.Random;
 
 import java.awt.*;
 
@@ -22,6 +23,10 @@ public strictfp class RobotPlayer {
     static int turnCount;
     static MapLocation HQLOC = null;
     static int HQELEVATION = Integer.MIN_VALUE;
+    static int MINERCOUNT = 0;
+    static boolean STUCK = false;
+    static MapLocation lastPos = null;
+    static boolean outOfRange;
 
 
     /**
@@ -37,7 +42,7 @@ public strictfp class RobotPlayer {
 
         turnCount = 0;
 
-        System.out.println("I'm a " + rc.getType() + " and I just got created!");
+        //System.out.println("I'm a " + rc.getType() + " and I just got created!");
         while (true) {
             turnCount += 1;
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
@@ -46,13 +51,13 @@ public strictfp class RobotPlayer {
                 // You can add the missing ones or rewrite this into your own control structure.
                 System.out.println("I'm a " + rc.getType() + "! Location " + rc.getLocation());
                 switch (rc.getType()) {
-                    case HQ:                 HQ.run();               break;
-                    case MINER:              Miner.run();            break;
+                    case HQ:                 runHQ();               break;
+                    case MINER:              runMiner();            break;
                     case REFINERY:           runRefinery();          break;
                     case VAPORATOR:          runVaporator();         break;
-                    case DESIGN_SCHOOL:      DesignSchool.run();     break;
+                    case DESIGN_SCHOOL:      runDesignSchool();      break;
                     case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
-                    case LANDSCAPER:         Landscaper.run();       break;
+                    case LANDSCAPER:         runLandscaper();       break;
                     case DELIVERY_DRONE:     runDeliveryDrone();     break;
                     case NET_GUN:            runNetGun();            break;
                 }
@@ -61,7 +66,7 @@ public strictfp class RobotPlayer {
                 Clock.yield();
 
             } catch (Exception e) {
-                System.out.println(rc.getType() + " Exception");
+                //System.out.println(rc.getType() + " Exception");
                 e.printStackTrace();
             }
         }
@@ -77,13 +82,150 @@ public strictfp class RobotPlayer {
     static void runVaporator() throws GameActionException {
 
     }
+    static void runLandscaper() throws GameActionException {
+        Random random = new Random();
+        if(HQLOC == null) {
+            RobotInfo[] robotList = rc.senseNearbyRobots();
+            for (RobotInfo robot : robotList) {
+                int count = 0;
+                //System.out.println(robot.toString());
+                if (robot.type == RobotType.HQ) {
+                    HQLOC = robot.getLocation();
+                    HQELEVATION = rc.senseElevation(HQLOC);
+                    System.out.println("i found the hq");
+                    count = 1;
+                    //System.out.println("HQLOC: "+HQLOC + " " + HQELEVATION);
+                }
+                if(count == 0) {
+                    outOfRange = true;
+                } else {
+                    outOfRange = false;
+                }
+            }
+        }
+        if (outOfRange) {
+            tryMove(randomDirection());
 
+        }
+
+//        Direction currentRandom = randomDirection();
+//        //tryMove(currentRandom);
+//        if(rc.isReady() && rc.canDigDirt(currentRandom)) {
+//            rc.digDirt(currentRandom);
+//            System.out.println("Im digging and i have " + rc.getDirtCarrying() + " dirt.");
+//        }
+        if (HQLOC != null) {
+        if (rc.getLocation().distanceSquaredTo(HQLOC) <= 8) {
+            System.out.println("trying to move away from HQ");
+            //tryMove(randomDirection());
+            tryMove(HQLOC.translate(random.nextInt(25 - 16) + 16, random.nextInt(25 - 16) + 16));
+            //(int) (3* Math.random()+ 1),(int) (3* Math.random()+ 1)));
+        }
+        }
+    }
+
+    static void runHQ() throws GameActionException {
+        //for (Direction dir : directions)
+        if (MINERCOUNT < 6) {
+            rc.buildRobot(RobotType.MINER, randomDirection());
+            //tryBuild(RobotType.MINER, randomDirection());
+            MINERCOUNT++;
+        }
+    }
+
+    static void runMiner() throws GameActionException {
+        //locating the HQ for every miner
+        if(HQLOC == null) {
+            RobotInfo[] robotList = rc.senseNearbyRobots();
+            for (RobotInfo robot : robotList) {
+                //System.out.println(robot.toString());
+                if (robot.type == RobotType.HQ) {
+                    HQLOC = robot.getLocation();
+                    HQELEVATION = rc.senseElevation(HQLOC);
+                    //System.out.println("HQLOC: "+HQLOC + " " + HQELEVATION);
+                }
+            }
+        }
+
+        //finding where the soup is and then we want to move to the closest one
+        MapLocation[] soupLocs = rc.senseNearbySoup();
+        MapLocation closestSoup = null;
+        int closestSoupDistance = Integer.MAX_VALUE;
+        for (MapLocation location: soupLocs) {
+            int distance = rc.getLocation().distanceSquaredTo(location);
+            if(distance < closestSoupDistance) {
+                closestSoup = location;
+                closestSoupDistance = distance;
+            }
+        }
+        //System.out.println("closest soup distance" + closestSoupDistance);
+
+        //moving towards soup
+//        if (rc.isReady()) {
+//            if (closestSoup != null) {
+//                tryMove(closestSoup);
+//                if (rc.getLocation().distanceSquaredTo(closestSoup) <= 2 && rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
+//                    tryMine(rc.getLocation().directionTo(closestSoup));
+//                }
+//                if (rc.getSoupCarrying() == RobotType.MINER.soupLimit){
+//                    System.out.println("Moving towards HQ now and I have " + rc.getSoupCarrying() +  " soup");
+//                    System.out.println("This is the HQ LOC: "+ HQLOC.toString());
+//                    tryMove(HQLOC);
+//                    if (rc.getLocation().distanceSquaredTo(HQLOC) <= 2) {
+//                        rc.depositSoup(rc.getLocation().directionTo(HQLOC), RobotType.MINER.soupLimit);
+//                    }
+//                }
+//            } else {
+//                tryMove(randomDirection());
+//            }
+//        }
+
+        if (rc.getSoupCarrying() == RobotType.MINER.soupLimit && rc.getLocation().distanceSquaredTo(HQLOC) <= 2) {
+            rc.depositSoup(rc.getLocation().directionTo(HQLOC), RobotType.MINER.soupLimit);
+        } else if (rc.getSoupCarrying() == RobotType.MINER.soupLimit && rc.getLocation().distanceSquaredTo(HQLOC) >= 2) {
+            tryMove(HQLOC);
+        }
+
+        if (closestSoup == null) {
+            System.out.println("randomly moving");
+            tryMove(randomDirection());
+        }
+
+//        } else if (rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
+//            tryMove(closestSoup);
+//        }
+        if (rc.getLocation().distanceSquaredTo(closestSoup) <= 2 && rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
+            tryMine(rc.getLocation().directionTo(closestSoup));
+        } else if (rc.getLocation().distanceSquaredTo(closestSoup) >= 2 && rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
+            tryMove(closestSoup);
+        } else if (rc.getSoupCarrying() == RobotType.MINER.soupLimit && rc.getLocation().distanceSquaredTo(HQLOC) <= 2){
+            rc.depositSoup(rc.getLocation().directionTo(HQLOC), RobotType.MINER.soupLimit);
+        } else if (rc.getSoupCarrying() == RobotType.MINER.soupLimit && rc.getLocation().distanceSquaredTo(HQLOC) >= 2){
+            tryMove(HQLOC);
+        }
+
+        //building design school
+
+        if (rc.getTeamSoup() > 300) {
+            rc.buildRobot(RobotType.DESIGN_SCHOOL, randomDirection());
+        }
+
+
+
+
+        //tryBlockchain();
+        //tryMove(randomDirection());
+    }
 
     static void runFulfillmentCenter() throws GameActionException {
         for (Direction dir : directions)
             tryBuild(RobotType.DELIVERY_DRONE, dir);
     }
 
+
+    static void runDesignSchool() throws GameActionException {
+        rc.buildRobot(RobotType.LANDSCAPER, randomDirection());
+    }
 
 
     static void runDeliveryDrone() throws GameActionException {
@@ -153,27 +295,80 @@ public strictfp class RobotPlayer {
         if (rc.isReady() && rc.canMove(dir)) {
             rc.move(dir);
             return true;
-        } else return false;
+        } else {
+            //rc.move(randomDirection());
+            return false;
+        }
+//        if (rc.isReady()) {
+//            if (rc.canMove(dir)) {
+//                rc.move(dir);
+//            } else {
+//                rc.move(randomDirection());
+//            }
+//            return true;
+//
+//        } else return false;
     }
 
     static boolean tryMove(MapLocation destination) throws GameActionException {
-        boolean didMove = true;
+        boolean didMove = false;
+        //boolean stuck = false;
+
         MapLocation position = rc.getLocation();
+
+
+
         int deltaX = destination.x - position.x;
+        System.out.println("deltax: " + deltaX);
+        int deltaY = destination.y - position.y;
+        if (deltaX >= 1 && deltaY >= 1) {
+            System.out.println("Moving NorthEast");
+            tryMove(Direction.NORTHEAST);
+            didMove = true;
+        }
+        if (deltaX >= 1 && deltaY <= -1) {
+            System.out.println("MOving SouthEast");
+            tryMove(Direction.SOUTHEAST);
+            didMove = true;
+        }
+        if (deltaX <= -1 && deltaY >= 1) {
+            System.out.println("Moving NorthWest");
+            tryMove(Direction.NORTHWEST);
+            didMove = true;
+        }
+        if (deltaX <= -1 && deltaY <= -1) {
+            System.out.println("MOving Southwest");
+            tryMove(Direction.SOUTHWEST);
+            didMove = true;
+        }
+
         if (deltaX > 1) {
-            didMove = tryMove(Direction.EAST);
-        } else if (deltaX < -1){
-            didMove = tryMove(Direction.WEST);
+            System.out.println("MOVING EAST");
+            rc.move(Direction.EAST);
+            didMove = true;
+
+        } else if (deltaX < -1) {
+            System.out.println("MOVING WEST");
+            rc.move(Direction.WEST);
+            didMove = true;
+        }
+
+        //int deltaY = destination.y - position.y;
+        if (deltaY > 1) {
+            tryMove(Direction.NORTH);
+            didMove = true;
+        } else if (deltaY < -1) {
+            tryMove(Direction.SOUTH);
+            didMove = true;
         }
         if (!didMove) {
-            return false;
+            System.out.println("I DIDNT MOVE");
+            tryMove(randomDirection());
         }
-        int deltaY = destination.y - position.y;
-        if (deltaY > 1) {
-            didMove = tryMove(Direction.NORTH);
-        } else if (deltaY < -1){
-            didMove = tryMove(Direction.SOUTH);
-        }
+        System.out.println("cooldown turns: " + rc.getCooldownTurns());
+
+
+
         return didMove;
     }
 
