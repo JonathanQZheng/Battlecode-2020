@@ -1,5 +1,7 @@
 package funcsplayer2;
 import battlecode.common.*;
+import battlecode.world.maps.CentralLake;
+
 import java.util.Random;
 
 import java.awt.*;
@@ -24,9 +26,7 @@ public strictfp class RobotPlayer {
     static MapLocation HQLOC = null;
     static int HQELEVATION = Integer.MIN_VALUE;
     static int MINERCOUNT = 0;
-    static boolean STUCK = false;
-    static MapLocation lastPos = null;
-    static boolean outOfRange;
+    static boolean FOUNDHQ = false;
 
 
     /**
@@ -84,43 +84,144 @@ public strictfp class RobotPlayer {
     }
     static void runLandscaper() throws GameActionException {
         Random random = new Random();
+
+
+
         if(HQLOC == null) {
             RobotInfo[] robotList = rc.senseNearbyRobots();
             for (RobotInfo robot : robotList) {
-                int count = 0;
                 //System.out.println(robot.toString());
                 if (robot.type == RobotType.HQ) {
                     HQLOC = robot.getLocation();
                     HQELEVATION = rc.senseElevation(HQLOC);
+                    FOUNDHQ = true;
                     System.out.println("i found the hq");
-                    count = 1;
                     //System.out.println("HQLOC: "+HQLOC + " " + HQELEVATION);
                 }
-                if(count == 0) {
-                    outOfRange = true;
-                } else {
-                    outOfRange = false;
-                }
+
             }
         }
-        if (outOfRange) {
+        if (!FOUNDHQ) {
             tryMove(randomDirection());
-
         }
+        System.out.println("THe hq position is: " + HQLOC.toString());
 
-//        Direction currentRandom = randomDirection();
-//        //tryMove(currentRandom);
-//        if(rc.isReady() && rc.canDigDirt(currentRandom)) {
-//            rc.digDirt(currentRandom);
-//            System.out.println("Im digging and i have " + rc.getDirtCarrying() + " dirt.");
-//        }
+
         if (HQLOC != null) {
-        if (rc.getLocation().distanceSquaredTo(HQLOC) <= 8) {
-            System.out.println("trying to move away from HQ");
-            //tryMove(randomDirection());
-            tryMove(HQLOC.translate(random.nextInt(25 - 16) + 16, random.nextInt(25 - 16) + 16));
-            //(int) (3* Math.random()+ 1),(int) (3* Math.random()+ 1)));
+            if (rc.getLocation().distanceSquaredTo(HQLOC) > 13) {
+                System.out.println("trying to move closer to HQ");
+                //tryMove(randomDirection());
+                int xMove = (int) (3* Math.random()+ 1);
+                int yMove = (int) (Math.sqrt(13 - xMove*xMove));
+                System.out.println(" xmove: " + xMove  + " y move: " + yMove);
+                tryMove(HQLOC.translate(xMove, yMove));
+                //(int) (3* Math.random()+ 1),(int) (3* Math.random()+ 1));
+            }
+            Direction hqDir = rc.getLocation().directionTo(HQLOC);
+            Direction digDir = Direction.CENTER;
+            switch (hqDir) {
+                case EAST: digDir = Direction.WEST; break;
+                case WEST: digDir = Direction.EAST; break;
+                case NORTH: digDir = Direction.SOUTH; break;
+                case SOUTH: digDir = Direction.NORTH; break;
+                case NORTHEAST: digDir = Direction.SOUTHWEST; break;
+                case SOUTHWEST: digDir = Direction.NORTHEAST; break;
+                case NORTHWEST: digDir = Direction.SOUTHEAST; break;
+                case SOUTHEAST: digDir = Direction.NORTHWEST; break;
+            }
+            if (rc.isReady() && rc.canDigDirt(digDir)) {
+                rc.digDirt(digDir);
+                System.out.println("I have " + rc.getDirtCarrying() + " dirt.");
+            }
+            MapLocation[] nearHQ = new MapLocation[8];
+            nearHQ[0] = HQLOC.translate(1,0);
+            nearHQ[1] = HQLOC.translate(1,-1);
+            nearHQ[2] = HQLOC.translate(0,-1);
+            nearHQ[3] = HQLOC.translate(-1,-1);
+            nearHQ[4] = HQLOC.translate(-1,0);
+            nearHQ[5] = HQLOC.translate(-1,1);
+            nearHQ[6] = HQLOC.translate(0,1);
+            nearHQ[7] = HQLOC.translate(1,1);
+
+            int movePos = (int) (7*Math.random() + 1);
+            if (!rc.isLocationOccupied(nearHQ[movePos]) && rc.isReady()) {
+                tryMove(nearHQ[movePos]);
+                rc.depositDirt(Direction.CENTER);
+            }
+//            for (MapLocation loc: nearHQ) {
+//                if (!rc.isLocationOccupied(loc) && rc.isReady()) {
+//                    tryMove(loc);
+//                }
+//            }
+
+
         }
+
+
+
+
+    }
+
+    static void formFormation() throws GameActionException {
+        //"method" for trying to get 3 landscapers to move around in a circle in the 8 blocks around the HQ
+        MapLocation[] nearHQ = new MapLocation[8];
+        nearHQ[0] = HQLOC.translate(1,0);
+        nearHQ[1] = HQLOC.translate(1,-1);
+        nearHQ[2] = HQLOC.translate(0,-1);
+        nearHQ[3] = HQLOC.translate(-1,-1);
+        nearHQ[4] = HQLOC.translate(-1,0);
+        nearHQ[5] = HQLOC.translate(-1,1);
+        nearHQ[6] = HQLOC.translate(0,1);
+        nearHQ[7] = HQLOC.translate(1,1);
+
+        if (rc.getLocation().equals(nearHQ[0])) {
+            if (rc.canDigDirt(Direction.EAST) && rc.isReady()) {
+                rc.digDirt(Direction.EAST);
+                Clock.yield();
+            }
+            tryMove(Direction.SOUTH);
+        } else if (rc.getLocation().equals(nearHQ[1])) {
+            if (rc.canDigDirt(Direction.SOUTHEAST) && rc.isReady()) {
+                rc.digDirt(Direction.SOUTHEAST);
+                Clock.yield();
+            }
+            tryMove(Direction.WEST);
+        } else if (rc.getLocation().equals(nearHQ[2])) {
+            if (rc.canDigDirt(Direction.SOUTH) && rc.isReady()) {
+                rc.digDirt(Direction.SOUTH);
+                Clock.yield();
+            }
+            tryMove(Direction.WEST);
+        } else if (rc.getLocation().equals(nearHQ[3])) {
+            if (rc.canDigDirt(Direction.SOUTHWEST) && rc.isReady()) {
+                rc.digDirt(Direction.SOUTHWEST);
+                Clock.yield();
+            }
+            tryMove(Direction.NORTH);
+        } else if (rc.getLocation().equals(nearHQ[4])) {
+            if (rc.canDigDirt(Direction.WEST) && rc.isReady()) {
+                rc.digDirt(Direction.WEST);
+                Clock.yield();
+            }
+            tryMove(Direction.NORTH);
+        } else if (rc.getLocation().equals(nearHQ[5])) {
+            if (rc.canDigDirt(Direction.NORTHWEST) && rc.isReady()) {
+                rc.digDirt(Direction.NORTHWEST);
+                Clock.yield();
+            }
+            tryMove(Direction.EAST);
+        } else if (rc.getLocation().equals(nearHQ[6])) {
+            if (rc.canDigDirt(Direction.NORTH) && rc.isReady()) {
+                rc.digDirt(Direction.NORTH);
+                Clock.yield();
+            }
+            tryMove(Direction.EAST);
+        } else {
+            if (rc.canDigDirt(Direction.NORTHEAST) && rc.isReady()) {
+                rc.digDirt(Direction.NORTHEAST);
+                Clock.yield();
+            }
+            tryMove(Direction.SOUTH);
         }
     }
 
@@ -207,6 +308,7 @@ public strictfp class RobotPlayer {
         //building design school
 
         if (rc.getTeamSoup() > 300) {
+
             rc.buildRobot(RobotType.DESIGN_SCHOOL, randomDirection());
         }
 
@@ -283,6 +385,10 @@ public strictfp class RobotPlayer {
 //             return tryMove(Direction.NORTH);
     }
 
+    static void clearHQ() throws GameActionException {
+
+    }
+
     /**
      * Attempts to move in a given direction.
      *
@@ -299,15 +405,6 @@ public strictfp class RobotPlayer {
             //rc.move(randomDirection());
             return false;
         }
-//        if (rc.isReady()) {
-//            if (rc.canMove(dir)) {
-//                rc.move(dir);
-//            } else {
-//                rc.move(randomDirection());
-//            }
-//            return true;
-//
-//        } else return false;
     }
 
     static boolean tryMove(MapLocation destination) throws GameActionException {
@@ -321,46 +418,49 @@ public strictfp class RobotPlayer {
         int deltaX = destination.x - position.x;
         System.out.println("deltax: " + deltaX);
         int deltaY = destination.y - position.y;
-        if (deltaX >= 1 && deltaY >= 1) {
+        if (deltaX >= 1 && deltaY >= 1 && rc.canMove(Direction.NORTHEAST)) {
             System.out.println("Moving NorthEast");
             tryMove(Direction.NORTHEAST);
             didMove = true;
         }
-        if (deltaX >= 1 && deltaY <= -1) {
+        if (deltaX >= 1 && deltaY <= -1 && rc.canMove(Direction.SOUTHEAST)) {
             System.out.println("MOving SouthEast");
             tryMove(Direction.SOUTHEAST);
             didMove = true;
         }
-        if (deltaX <= -1 && deltaY >= 1) {
+        if (deltaX <= -1 && deltaY >= 1 && rc.canMove(Direction.NORTHWEST)) {
             System.out.println("Moving NorthWest");
             tryMove(Direction.NORTHWEST);
             didMove = true;
         }
-        if (deltaX <= -1 && deltaY <= -1) {
+        if (deltaX <= -1 && deltaY <= -1 && rc.canMove(Direction.SOUTHWEST)) {
             System.out.println("MOving Southwest");
             tryMove(Direction.SOUTHWEST);
             didMove = true;
         }
+        if (didMove == false) {
+            if (deltaX > 1 && rc.canMove(Direction.EAST)) {
+                System.out.println("MOVING EAST");
+                rc.move(Direction.EAST);
+                didMove = true;
 
-        if (deltaX > 1) {
-            System.out.println("MOVING EAST");
-            rc.move(Direction.EAST);
-            didMove = true;
+            } else if (deltaX < -1 && rc.canMove(Direction.WEST)) {
+                System.out.println("MOVING WEST");
+                rc.move(Direction.WEST);
+                didMove = true;
+            }
 
-        } else if (deltaX < -1) {
-            System.out.println("MOVING WEST");
-            rc.move(Direction.WEST);
-            didMove = true;
+            //int deltaY = destination.y - position.y;
+            if (deltaY > 1 && rc.canMove(Direction.NORTH)) {
+                tryMove(Direction.NORTH);
+                didMove = true;
+            } else if (deltaY < -1 && rc.canMove(Direction.SOUTH)) {
+                tryMove(Direction.SOUTH);
+                didMove = true;
+            }
         }
 
-        //int deltaY = destination.y - position.y;
-        if (deltaY > 1) {
-            tryMove(Direction.NORTH);
-            didMove = true;
-        } else if (deltaY < -1) {
-            tryMove(Direction.SOUTH);
-            didMove = true;
-        }
+
         if (!didMove) {
             System.out.println("I DIDNT MOVE");
             tryMove(randomDirection());
